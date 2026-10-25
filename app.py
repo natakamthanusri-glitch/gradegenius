@@ -621,4 +621,4 @@ elif page == "💼 Career Connections":
 
     st.markdown("### 🌱 How to get started")
     st.write(
-        "Choose one skill, learn the fundamentals, practice it regularly, and build a small project."
+        "Choose one skill, learn the fundamentals, practice it regularly, and build a small project.")
