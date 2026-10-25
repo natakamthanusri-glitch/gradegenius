@@ -697,8 +697,10 @@ elif page == "Progress & Report":
         hide_index=True
     )
 
-    st.download_button(
+  st.download_button(
         "⬇️ Download Progress Report",
         data=report_df.to_csv(index=False),
         file_name="gradegenius_progress_report.csv",
-        mim)
+        mime="text/csv",
+        use_container_width=True
+    )
