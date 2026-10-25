@@ -1,624 +1,326 @@
 import streamlit as st
 import pandas as pd
-
-# =====================================================
-# GRADEGENIUS - STUDENT ACADEMIC & CAREER GUIDANCE APP
-# =====================================================
+from datetime import date, timedelta
 
 st.set_page_config(
-    page_title="GradeGenius | Learn & Grow",
-    page_icon="🎓",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Student Study Planner",
+    page_icon="📚",
+    layout="wide"
 )
 
-# -------------------- THEME --------------------
+st.title("📚 Student Study Companion")
+st.write(
+    "A smart study planner for 2nd, 3rd and 4th year students"
+)
 
-st.markdown("""
-<style>
-.stApp {
-    background: linear-gradient(135deg, #F3EDFF 0%, #FFF1F6 55%, #F9F5FF 100%);
-    color: #382B50;
-}
-.block-container {
-    padding-top: 1.8rem;
-    padding-bottom: 3rem;
-    max-width: 1450px;
-}
-[data-testid="stSidebar"] {
-    background: #EAE0FA;
-    border-right: 1px solid #DCCBF4;
-}
-h1, h2, h3 {
-    color: #493566 !important;
-}
-.gg-card {
-    background: #FFFCFF;
-    border: 1px solid #E5D8F5;
-    border-radius: 20px;
-    padding: 22px;
-    margin-bottom: 15px;
-}
-.gg-hero {
-    background: linear-gradient(115deg, #E3D6FA, #FCE1EB);
-    border-radius: 24px;
-    padding: 30px;
-    margin-bottom: 20px;
-}
-.gg-small {
-    color: #786985;
-    font-size: 0.92rem;
-}
-div.stButton > button,
-div.stFormSubmitButton > button {
-    background: #8666CF;
-    color: white;
-    border: 0;
-    border-radius: 12px;
-    min-height: 42px;
-}
-div.stButton > button:hover,
-div.stFormSubmitButton > button:hover {
-    background: #6D4DB8;
-    color: white;
-    border: 0;
-}
-[data-testid="stMetric"] {
-    background: #FFFCFF;
-    border: 1px solid #E5D8F5;
-    border-radius: 16px;
-    padding: 15px;
-}
-</style>
-""", unsafe_allow_html=True)
+# Sidebar
+st.sidebar.header("Student Details")
 
-# -------------------- SUBJECT INFORMATION --------------------
+year = st.sidebar.selectbox(
+    "Select Year",
+    ["2nd Year", "3rd Year", "4th Year"]
+)
 
-SUBJECTS = {
-    "DBMS": {
-        "full": "Database Management Systems",
-        "roles": "Backend Developer, Database Developer, Data Engineer",
-        "uses": "Websites and applications store customer profiles, "
-                "orders, payments and other information in databases.",
-        "skills": "SQL, joins, keys, normalization, database design",
-        "project": "Student Records Management System",
-        "tasks": [
-            "Revise tables, primary keys and foreign keys.",
-            "Practice SQL SELECT, WHERE and ORDER BY.",
-            "Solve SQL INSERT, UPDATE and DELETE exercises.",
-            "Practice joins using two related tables.",
-            "Learn normalization with simple examples.",
-            "Build a small student database.",
-            "Review queries and explain what each one does."
-        ]
-    },
-    "DMS": {
-        "full": "Discrete Mathematical Structures",
-        "roles": "Software Engineer, Algorithm Developer",
-        "uses": "Logic, sets, relations, graphs and counting techniques "
-                "support algorithms, software reasoning and computing.",
-        "skills": "Propositional logic, sets, relations, graphs, counting",
-        "project": "Campus Route Planner using graphs",
-        "tasks": [
-            "Revise propositions and logical operators.",
-            "Practice truth tables.",
-            "Solve set and relation problems.",
-            "Practice permutations and combinations.",
-            "Learn graph representations.",
-            "Solve application-based problems.",
-            "Review mistakes and explain the reasoning."
-        ]
-    },
-    "OOPS": {
-        "full": "Object-Oriented Programming",
-        "roles": "Java Developer, Application Developer, Backend Developer",
-        "uses": "Classes, objects and reusable components help developers "
-                "organize and maintain large software applications.",
-        "skills": "Classes, objects, inheritance, polymorphism, abstraction",
-        "project": "Student Management Application",
-        "tasks": [
-            "Revise classes and objects.",
-            "Write constructors and methods.",
-            "Practice encapsulation.",
-            "Implement inheritance.",
-            "Practice polymorphism.",
-            "Build a small object-oriented application.",
-            "Test your code and review the design."
-        ]
-    },
-    "DS": {
-        "full": "Data Structures",
-        "roles": "Software Engineer, Backend Developer, Systems Developer",
-        "uses": "Data structures support efficient searching, scheduling, "
-                "data processing and memory organization.",
-        "skills": "Arrays, linked lists, stacks, queues, trees, sorting",
-        "project": "Task Manager using a queue",
-        "tasks": [
-            "Revise arrays and their operations.",
-            "Practice linked-list insertion.",
-            "Practice linked-list deletion.",
-            "Implement stacks and queues.",
-            "Trace sorting algorithms.",
-            "Solve beginner coding problems.",
-            "Review time complexity and mistakes."
-        ]
-    },
-    "AI": {
-        "full": "Artificial Intelligence",
-        "roles": "AI Engineer, Machine Learning Engineer, AI Application Developer",
-        "uses": "AI supports prediction, recommendations, intelligent "
-                "assistants, image recognition and automation.",
-        "skills": "Python, data preparation, algorithms, model evaluation",
-        "project": "Beginner Student Performance Analyzer",
-        "tasks": [
-            "Revise AI fundamentals and terminology.",
-            "Practice Python basics.",
-            "Learn data preparation.",
-            "Explore search and reasoning algorithms.",
-            "Understand training and testing data.",
-            "Build a small beginner AI project.",
-            "Review results and identify model limitations."
-        ]
-    },
-    "DLD": {
-        "full": "Digital Logic Design",
-        "roles": "Embedded Systems Engineer, Digital Design Engineer, FPGA Engineer",
-        "uses": "Digital logic underlies processors, controllers, "
-                "electronic devices and computer hardware.",
-        "skills": "Logic gates, Boolean algebra, truth tables, adders",
-        "project": "Binary Adder/Subtractor Simulator",
-        "tasks": [
-            "Revise AND, OR and NOT gates.",
-            "Practice logic-gate truth tables.",
-            "Simplify Boolean expressions.",
-            "Study combinational circuits.",
-            "Practice half adders and full adders.",
-            "Study binary addition and subtraction.",
-            "Draw and verify circuit diagrams."
-        ]
-    },
-    "DW": {
-        "full": "Data Warehousing",
-        "roles": "Data Analyst, BI Developer, Data Engineer",
-        "uses": "Organizations combine data from different sources "
-                "for reports, dashboards and business decisions.",
-        "skills": "ETL, SQL, fact tables, dimension tables, star schemas",
-        "project": "Academic Performance Analytics Dashboard",
-        "tasks": [
-            "Revise data warehouse fundamentals.",
-            "Compare OLTP and OLAP.",
-            "Learn fact and dimension tables.",
-            "Draw a simple star schema.",
-            "Understand ETL steps.",
-            "Explore a reporting dataset.",
-            "Create a simple analytics dashboard."
-        ]
-    }
-}
+semester = st.sidebar.selectbox(
+    "Select Semester",
+    ["Semester 1", "Semester 2"]
+)
 
-# -------------------- SESSION DATA --------------------
+student = st.sidebar.text_input("Student Name")
 
-if "profile" not in st.session_state:
-    st.session_state.profile = {
-        "name": "",
-        "year": "B.Tech 1st Year",
-        "goal": "Software Development"
-    }
-
-if "subject_data" not in st.session_state:
-    st.session_state.subject_data = {
-        subject: {
-            "marks": 60,
-            "attendance": 80,
-            "hours": 5.0,
-            "assignments": 70
-        }
-        for subject in SUBJECTS
-    }
-
-if "analyzed" not in st.session_state:
-    st.session_state.analyzed = False
-
-if "planner_checks" not in st.session_state:
-    st.session_state.planner_checks = {}
-
-# -------------------- HELPER FUNCTIONS --------------------
-
-def estimate_score(values):
-    """
-    Transparent illustrative score, NOT a trained ML prediction.
-    Inputs are normalized to a 0-100 scale.
-    """
-    study_score = min(values["hours"] / 20 * 100, 100)
-    return round(
-        0.55 * values["marks"]
-        + 0.15 * values["attendance"]
-        + 0.15 * study_score
-        + 0.15 * values["assignments"],
-        1
-    )
-
-
-def progress_label(score):
-    if score >= 85:
-        return "Strong progress 🌟"
-    elif score >= 70:
-        return "Good progress 🌷"
-    elif score >= 50:
-        return "Building your skills 🌱"
-    return "A fresh opportunity to practice 💜"
-
-
-def encouragement(score):
-    if score >= 85:
-        return (
-            "You're building a strong foundation. Keep practicing "
-            "and try a project that challenges you."
-        )
-    elif score >= 70:
-        return (
-            "Your effort is moving you forward. Practice a few "
-            "real-world problems to strengthen your skills."
-        )
-    elif score >= 50:
-        return (
-            "You're learning step by step. Focus on one concept "
-            "at a time, practice regularly and review mistakes."
-        )
-    return (
-        "Every learner starts somewhere. This result identifies "
-        "topics to revisit; it does not define your ability or future. "
-        "Begin with the basics and ask for help when needed."
-    )
-
-
-# -------------------- SIDEBAR --------------------
-
-st.sidebar.markdown("# 🎓 GradeGenius")
-st.sidebar.caption("Learn at your pace. Grow with purpose.")
-
-page = st.sidebar.radio(
-    "YOUR LEARNING SPACE",
-    [
-        "🏠 Home",
-        "👤 Student Profile",
-        "📊 Performance Dashboard",
-        "💼 Career Connections",
-        "📅 Study Planner",
-        "🔮 What-if Simulator",
-        "📄 Progress Report"
+# Subjects based on year
+subjects_data = {
+    "2nd Year": [
+        "Data Structures",
+        "Object Oriented Programming",
+        "DBMS",
+        "Operating Systems",
+        "Discrete Mathematics"
+    ],
+    "3rd Year": [
+        "Computer Networks",
+        "Design and Analysis of Algorithms",
+        "Software Engineering",
+        "Theory of Computation",
+        "Web Technologies"
+    ],
+    "4th Year": [
+        "Artificial Intelligence",
+        "Machine Learning",
+        "Cloud Computing",
+        "Cyber Security",
+        "Project Work"
     ]
-)
+}
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🌷 Daily reminder")
-st.sidebar.info(
-    "Your marks describe a moment in your learning journey, "
-    "not your potential."
-)
-st.sidebar.caption("7 subjects • Career insights • Study planning")
+subjects = subjects_data[year]
 
-# =====================================================
-# HOME
-# =====================================================
+st.sidebar.write("Selected:", year, "-", semester)
 
-if page == "🏠 Home":
-    name = st.session_state.profile["name"]
-    greeting = f"Welcome back, {name}!" if name else "Welcome to GradeGenius!"
+# Navigation
+dashboard, planner, simulator, report = st.tabs([
+    "🏠 Dashboard",
+    "📅 Study Planner",
+    "🔮 What-If Simulator",
+    "📊 Progress Report"
+])
 
-    st.markdown(
-        f"""
-        <div class="gg-hero">
-            <h1>{greeting} 🌷</h1>
-            <h3>Understand your progress. Discover your potential.</h3>
-            <p>Turn academic learning into practical skills for your future.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
+# Store progress during the current session
+progress_key = f"progress_{year}_{semester}"
+
+if progress_key not in st.session_state:
+    st.session_state[progress_key] = {
+        subject: {"total": 5, "completed": 0}
+        for subject in subjects
+    }
+
+progress = st.session_state[progress_key]
+
+for subject in subjects:
+    if subject not in progress:
+        progress[subject] = {"total": 5, "completed": 0}
+
+# DASHBOARD
+with dashboard:
+    if student.strip():
+        st.subheader(f"Welcome, {student}!")
+    else:
+        st.subheader("Welcome, Student!")
+
+    st.write(f"Year: **{year}**")
+    st.write(f"Semester: **{semester}**")
+
+    total_topics = sum(
+        item["total"] for item in progress.values()
+    )
+
+    completed_topics = sum(
+        item["completed"] for item in progress.values()
+    )
+
+    remaining = total_topics - completed_topics
+
+    percentage = (
+        completed_topics / total_topics * 100
+        if total_topics else 0
     )
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Subjects", "7")
-    c2.metric("Career connections", "7")
-    c3.metric("Your focus", "Steady growth")
 
-    st.markdown("## Your learning journey")
-    a, b = st.columns(2)
+    c1.metric("Total Subjects", len(subjects))
+    c2.metric("Completed Topics", completed_topics)
+    c3.metric("Overall Progress", f"{percentage:.1f}%")
 
-    with a:
-        st.markdown(
-            """
-            <div class="gg-card">
-            <h3>📊 Understand your progress</h3>
-            Enter your subject marks, attendance, study time and
-            assignment completion to review your current learning.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        st.markdown(
-            """
-            <div class="gg-card">
-            <h3>💼 Connect learning to careers</h3>
-            Discover how your subjects connect to software,
-            data, AI and hardware-related roles.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    st.progress(int(percentage))
+    st.write("### Your Subjects")
 
-    with b:
-        st.markdown(
-            """
-            <div class="gg-card">
-            <h3>📅 Build a practical routine</h3>
-            Follow a manageable seven-day study plan and track
-            the tasks you complete.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        st.markdown(
-            """
-            <div class="gg-card">
-            <h3>🌱 Focus on improvement</h3>
-            Find the next topic to practice without treating
-            a single score as a measure of your potential.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    for subject in subjects:
+        st.write("📘", subject)
 
-    st.info(
-        "Getting started: complete Student Profile, then enter "
-        "your subject details in Performance Dashboard."
-    )
+# STUDY PLANNER
+with planner:
+    st.subheader("📅 Personal Study Planner")
 
-# =====================================================
-# STUDENT PROFILE
-# =====================================================
-
-elif page == "👤 Student Profile":
-    st.header("Your Student Profile 🌷")
-    st.write("Set up your profile and choose a career interest.")
-
-    current = st.session_state.profile
-
-    years = [
-        "B.Tech 1st Year",
-        "B.Tech 2nd Year",
-        "B.Tech 3rd Year",
-        "B.Tech 4th Year"
-    ]
-    goals = [
-        "Software Development",
-        "AI and Machine Learning",
-        "Data Engineering and Analytics",
-        "Embedded Systems",
-        "Exploring careers"
-    ]
-
-    with st.form("profile_form"):
-        name = st.text_input("Your name", value=current["name"])
-        year = st.selectbox(
-            "Academic year",
-            years,
-            index=years.index(current["year"])
-        )
-        goal = st.selectbox(
-            "Career interest",
-            goals,
-            index=goals.index(current["goal"])
-        )
-
-        save_profile = st.form_submit_button("Save Profile")
-
-    if save_profile:
-        if not name.strip():
-            st.error("Please enter your name.")
-        else:
-            st.session_state.profile = {
-                "name": name.strip(),
-                "year": year,
-                "goal": goal
-            }
-            st.success("Your profile has been saved for this session!")
-
-    st.markdown("### Your profile summary")
-    st.write("**Name:**", st.session_state.profile["name"] or "Not entered")
-    st.write("**Year:**", st.session_state.profile["year"])
-    st.write("**Career interest:**", st.session_state.profile["goal"])
-
-# =====================================================
-# PERFORMANCE DASHBOARD
-# =====================================================
-
-elif page == "📊 Performance Dashboard":
-    st.header("Your Academic Dashboard 🌷")
     st.write(
-        "Enter your current values for each subject. "
-        "Use real academic records wherever possible."
+        "Create a daily study schedule for your selected subjects."
     )
 
-    with st.form("subject_inputs"):
-        updated = {}
+    hours = st.number_input(
+        "Daily Study Hours",
+        min_value=1,
+        max_value=16,
+        value=3
+    )
 
-        for subject, info in SUBJECTS.items():
-            st.markdown(f"### {subject} — {info['full']}")
-            old = st.session_state.subject_data[subject]
+    start_date = st.date_input(
+        "Start Date",
+        value=date.today()
+    )
 
-            left, right = st.columns(2)
+    exam_date = st.date_input(
+        "Exam Date",
+        value=date.today() + timedelta(days=7),
+        min_value=date.today()
+    )
 
-            with left:
-                marks = st.number_input(
-                    f"{subject}: Marks (%)",
-                    min_value=0,
-                    max_value=100,
-                    value=int(old["marks"]),
-                    key=f"marks_{subject}"
-                )
-                attendance = st.number_input(
-                    f"{subject}: Attendance (%)",
-                    min_value=0,
-                    max_value=100,
-                    value=int(old["attendance"]),
-                    key=f"attendance_{subject}"
-                )
+    selected_subjects = st.multiselect(
+        "Choose Subjects",
+        subjects,
+        default=subjects
+    )
 
-            with right:
-                hours = st.number_input(
-                    f"{subject}: Study hours per week",
-                    min_value=0.0,
-                    max_value=60.0,
-                    value=float(old["hours"]),
-                    step=0.5,
-                    key=f"hours_{subject}"
-                )
-                assignments = st.number_input(
-                    f"{subject}: Assignment completion (%)",
-                    min_value=0,
-                    max_value=100,
-                    value=int(old["assignments"]),
-                    key=f"assignments_{subject}"
-                )
+    if st.button("Generate Study Plan"):
+        if not selected_subjects:
+            st.warning("Please select at least one subject.")
 
-            updated[subject] = {
-                "marks": marks,
-                "attendance": attendance,
-                "hours": hours,
-                "assignments": assignments
-            }
+        elif exam_date < start_date:
+            st.error("Exam date must be after the start date.")
 
-        analyze = st.form_submit_button(
-            "✨ Analyze My Learning",
-            use_container_width=True
+        else:
+            days = (exam_date - start_date).days + 1
+            rows = []
+
+            for i in range(days):
+                study_date = start_date + timedelta(days=i)
+                subject = selected_subjects[
+                    i % len(selected_subjects)
+                ]
+
+                rows.append({
+                    "Date": study_date.strftime("%d-%m-%Y"),
+                    "Day": study_date.strftime("%A"),
+                    "Subject": subject,
+                    "Study Hours": hours,
+                    "Task": "Learn topics, revise notes and practise questions"
+                })
+
+            plan_df = pd.DataFrame(rows)
+
+            st.success("Study plan generated successfully!")
+            st.dataframe(plan_df, use_container_width=True)
+
+            st.download_button(
+                "Download Study Plan",
+                data=plan_df.to_csv(index=False),
+                file_name="study_plan.csv",
+                mime="text/csv"
+            )
+
+# WHAT-IF SIMULATOR
+with simulator:
+    st.subheader("🔮 What-If Simulator")
+
+    st.write(
+        "See how changing your daily study hours affects "
+        "your total preparation time."
+    )
+
+    current_hours = st.slider(
+        "Current Study Hours Per Day",
+        1, 12, 2
+    )
+
+    new_hours = st.slider(
+        "What if you study this many hours per day?",
+        1, 12, 4
+    )
+
+    days_left = st.number_input(
+        "Days Until Exam",
+        min_value=1,
+        max_value=365,
+        value=14
+    )
+
+    current_total = current_hours * days_left
+    new_total = new_hours * days_left
+    difference = new_total - current_total
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("Current Total Hours", current_total)
+    c2.metric("New Total Hours", new_total)
+    c3.metric("Change in Hours", f"{difference:+}")
+
+    if difference > 0:
+        st.success(
+            f"You gain {difference} extra study hours before your exam!"
+        )
+    elif difference < 0:
+        st.warning(
+            f"You have {abs(difference)} fewer study hours."
+        )
+    else:
+        st.info("Your total study time remains the same.")
+
+    st.caption(
+        "This is a study-time estimate, not a prediction of exam marks."
+    )
+
+# PROGRESS REPORT
+with report:
+    st.subheader("📊 Progress Report")
+
+    st.write(
+        "Update completed topics for each subject "
+        "to track your preparation."
+    )
+
+    report_rows = []
+
+    for subject in subjects:
+        st.markdown(f"### {subject}")
+
+        total = st.number_input(
+            f"Total Topics - {subject}",
+            min_value=1,
+            max_value=500,
+            value=int(progress[subject]["total"]),
+            key=f"total_{year}_{semester}_{subject}"
         )
 
-    if analyze:
-        st.session_state.subject_data = updated
-        st.session_state.analyzed = True
+        completed = st.number_input(
+            f"Completed Topics - {subject}",
+            min_value=0,
+            max_value=int(total),
+            value=min(
+                int(progress[subject]["completed"]),
+                int(total)
+            ),
+            key=f"completed_{year}_{semester}_{subject}"
+        )
 
-    if st.session_state.analyzed:
-        data = st.session_state.subject_data
-        scores = {
-            subject: estimate_score(values)
-            for subject, values in data.items()
+        progress[subject] = {
+            "total": int(total),
+            "completed": int(completed)
         }
 
-        average = sum(scores.values()) / len(scores)
+        percent = completed / total * 100
 
-        st.markdown("## Your learning snapshot")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Average indicative score", f"{average:.1f}/100")
-        col2.metric("Subjects tracked", "7")
-        col3.metric(
-            "Study time per week",
-            f"{sum(v['hours'] for v in data.values()):.1f} hrs"
-        )
+        st.progress(int(percent))
+        st.write(f"Progress: {percent:.1f}%")
 
-        st.caption(
-            "These are illustrative rule-based scores, not trained "
-            "machine-learning predictions or guaranteed exam marks."
-        )
-
-        rows = []
-        for subject, score in scores.items():
-            rows.append({
-                "Subject": subject,
-                "Current marks (%)": data[subject]["marks"],
-                "Indicative score": score,
-                "Learning insight": progress_label(score)
-            })
-
-        st.dataframe(
-            pd.DataFrame(rows),
-            use_container_width=True,
-            hide_index=True
-        )
-
-        st.markdown("## Subject comparison")
-        chart_df = pd.DataFrame({
-            "Indicative score": scores
+        report_rows.append({
+            "Subject": subject,
+            "Completed": completed,
+            "Remaining": total - completed,
+            "Progress (%)": round(percent, 1)
         })
-        st.bar_chart(chart_df)
 
-        st.markdown("## Your next steps 💜")
+    df = pd.DataFrame(report_rows)
 
-        for subject, score in scores.items():
-            info = SUBJECTS[subject]
-            values = data[subject]
+    total_completed = int(df["Completed"].sum())
+    total_remaining = int(df["Remaining"].sum())
+    total_all = total_completed + total_remaining
 
-            with st.expander(
-                f"{subject} — {progress_label(score)}"
-            ):
-                st.write(encouragement(score))
-                st.write(f"**Career connection:** {info['roles']}")
-                st.write(f"**Industry application:** {info['uses']}")
-                st.write(f"**Skills to practice:** {info['skills']}")
-                st.write(f"**Suggested project:** {info['project']}")
-
-                if values["marks"] < 50:
-                    st.write(
-                        "**Suggested starting point:** Revisit one "
-                        "fundamental concept and solve a few beginner "
-                        "questions before moving to harder topics."
-                    )
-                elif values["marks"] < 75:
-                    st.write(
-                        "**Suggested next step:** Practice problems "
-                        "and apply one concept in a small project."
-                    )
-                else:
-                    st.write(
-                        "**Suggested next step:** Challenge yourself "
-                        "with a practical project or more advanced problems."
-                    )
-
-                st.progress(int(max(0, min(100, score))))
-
-    else:
-        st.info(
-            "Enter your subject details and click Analyze My Learning "
-            "to view the dashboard."
-        )
-
-# =====================================================
-# CAREER CONNECTIONS
-# =====================================================
-
-elif page == "💼 Career Connections":
-    st.header("From Subjects to Software Careers 💼")
-    st.write(
-        "Explore real-world applications and beginner projects "
-        "connected to your subjects."
+    overall = (
+        total_completed / total_all * 100
+        if total_all else 0
     )
 
-    selected = st.selectbox(
-        "Choose a subject",
-        list(SUBJECTS.keys())
-    )
-    info = SUBJECTS[selected]
-    values = st.session_state.subject_data[selected]
+    st.divider()
+    st.subheader("Overall Performance")
 
-    st.markdown(
-        f"""
-        <div class="gg-hero">
-            <h2>{selected}: {info['full']}</h2>
-            <p>{info['uses']}</p>
-        </div>
-        """,
-        unsafe_allow_html=True
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("Completed", total_completed)
+    c2.metric("Remaining", total_remaining)
+    c3.metric("Progress", f"{overall:.1f}%")
+
+    st.bar_chart(
+        df.set_index("Subject")[["Completed", "Remaining"]]
     )
 
-    st.markdown("### 💻 Related job roles")
-    st.write(info["roles"])
+    st.dataframe(df, use_container_width=True)
 
-    st.markdown("### 🧠 Skills to build")
-    st.write(info["skills"])
+    st.download_button(
+        "Download Progress Report",
+        data=df.to_csv(index=False),
+        file_name="progress_report.csv",
+        mime="text/csv"
+    )
 
-    st.markdown("### 🛠️ Beginner project idea")
-    st.write(info["project"])
-
-    st.markdown("### 🌱 How to get started")
-    st.write(
-        "Choose one skill, learn the fundamentals, practice it regularly, and build a small project.")
+st.divider()
+st.caption(
+    "Student Study Companion | Plan Smart • Study Better • Track Progress"
+)
