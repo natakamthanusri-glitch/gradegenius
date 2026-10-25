@@ -701,4 +701,4 @@ elif page == "Progress & Report":
         "⬇️ Download Progress Report",
         data=report_df.to_csv(index=False),
         file_name="gradegenius_progress_report.csv",
-        mim)
+        mim
