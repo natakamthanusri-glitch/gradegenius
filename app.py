@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
-from io import StringIO
+import html
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------- DESIGN ----------------
+# ---------------- CUSTOM DESIGN ----------------
 st.markdown("""
 <style>
 .stApp {
@@ -35,11 +35,13 @@ st.markdown("""
     background: #FBE6EE;
     border-radius: 18px;
     padding: 22px;
+    margin-bottom: 18px;
 }
 .gg-purple {
     background: #E3D7FA;
     border-radius: 18px;
     padding: 22px;
+    margin-bottom: 18px;
 }
 h1, h2, h3 {
     color: #30264B !important;
@@ -58,94 +60,105 @@ h1, h2, h3 {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- SUBJECTS ----------------
+# ---------------- SUBJECT LIST ----------------
 SUBJECTS = {
     "2nd Year": {
         "Semester 1": [
-            "Mathematics", "Data Structures",
-            "Digital Logic Design", "Python Programming",
-            "Computer Organization"
+            "OOPS", "DS", "DBMS", "DW", "DMS", "AI"
         ],
         "Semester 2": [
-            "Java Programming", "DBMS",
-            "Operating Systems", "Computer Networks",
-            "Design and Analysis of Algorithms"
+            "Java Programming", "Operating Systems",
+            "Computer Networks", "Software Engineering",
+            "Web Technologies", "Algorithms"
         ]
     },
     "3rd Year": {
         "Semester 1": [
             "Artificial Intelligence", "Machine Learning",
-            "Software Engineering", "Web Technologies",
-            "Theory of Computation"
+            "Computer Networks", "Web Technologies",
+            "Theory of Computation", "Data Mining"
         ],
         "Semester 2": [
             "Cloud Computing", "Cyber Security",
-            "Data Mining", "Compiler Design",
-            "Distributed Systems"
+            "Big Data Analytics", "Compiler Design",
+            "Distributed Systems", "Elective"
         ]
     },
     "4th Year": {
         "Semester 1": [
             "Deep Learning", "Big Data Analytics",
             "Project Work", "Internet of Things",
-            "Professional Elective"
+            "Professional Elective", "Open Elective"
         ],
         "Semester 2": [
             "Major Project", "Internship",
-            "Professional Ethics", "Technical Seminar",
-            "Open Elective"
+            "Technical Seminar", "Professional Ethics",
+            "Open Elective", "Elective"
         ]
     }
 }
 
-# ---------------- SESSION STATE ----------------
-if "student_name" not in st.session_state:
-    st.session_state.student_name = ""
+# ---------------- SESSION DATA ----------------
+if "profile" not in st.session_state:
+    st.session_state.profile = {
+        "name": "",
+        "course": "B.Tech",
+        "year": "2nd Year",
+        "semester": "Semester 1",
+        "attendance": 75,
+        "study_hours": 3
+    }
 
-if "marks" not in st.session_state:
-    st.session_state.marks = {}
+if "subject_data" not in st.session_state:
+    st.session_state.subject_data = {}
 
-if "progress" not in st.session_state:
-    st.session_state.progress = {}
+if "study_plan" not in st.session_state:
+    st.session_state.study_plan = []
 
-if "planner" not in st.session_state:
-    st.session_state.planner = None
+# ---------------- HELPER FUNCTIONS ----------------
+def get_subject_key(year, semester, subject):
+    return f"{year}_{semester}_{subject}"
+
+def get_subject_data(year, semester, subject):
+    key = get_subject_key(year, semester, subject)
+
+    if key not in st.session_state.subject_data:
+        st.session_state.subject_data[key] = {
+            "marks": 0.0,
+            "attendance": 75.0,
+            "study_hours": 1.0,
+            "assignments_done": 0,
+            "assignments_total": 5,
+            "topics_done": 0,
+            "topics_total": 10
+        }
+
+    return st.session_state.subject_data[key]
+
+def current_subjects():
+    profile = st.session_state.profile
+    return SUBJECTS[profile["year"]][profile["semester"]]
+
+def calculate_average(subjects, year, semester):
+    if not subjects:
+        return 0
+
+    marks = [
+        get_subject_data(year, semester, subject)["marks"]
+        for subject in subjects
+    ]
+
+    return round(sum(marks) / len(marks), 1)
 
 # ---------------- SIDEBAR ----------------
 st.sidebar.markdown("# 🎓 GradeGenius")
 st.sidebar.caption("Your personal academic companion")
 st.sidebar.markdown("---")
 
-year = st.sidebar.selectbox(
-    "Select your year",
-    ["2nd Year", "3rd Year", "4th Year"]
-)
-
-semester = st.sidebar.selectbox(
-    "Select semester",
-    ["Semester 1", "Semester 2"]
-)
-
-student_name = st.sidebar.text_input(
-    "Student name",
-    value=st.session_state.student_name,
-    placeholder="Enter your name"
-)
-st.session_state.student_name = student_name
-
-attendance = st.sidebar.slider(
-    "Attendance (%)", 0, 100, 80
-)
-
-daily_hours = st.sidebar.slider(
-    "Available daily study hours",
-    1, 12, 3
-)
-
 page = st.sidebar.radio(
     "NAVIGATION",
     [
-        "Overview",
+        "Home",
         "My Subjects",
         "Study Planner",
         "What-if Simulator",
@@ -154,230 +167,356 @@ page = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### ✨ Daily reminder")
+st.sidebar.markdown("### ✨ Daily Reminder")
 st.sidebar.info("Small steps every day lead to big results.")
 
-subjects = SUBJECTS[year][semester]
+profile = st.session_state.profile
+year = profile["year"]
+semester = profile["semester"]
+subjects = current_subjects()
 
-# Create marks and progress entries for selected subjects
-for subject in subjects:
-    mark_key = f"{year}_{semester}_{subject}_mark"
-    progress_key = f"{year}_{semester}_{subject}_progress"
-
-    if mark_key not in st.session_state.marks:
-        st.session_state.marks[mark_key] = 0
-
-    if progress_key not in st.session_state.progress:
-        st.session_state.progress[progress_key] = {
-            "total": 10,
-            "completed": 0
-        }
-
-# Get marks for selected semester
-scores = [
-    st.session_state.marks[f"{year}_{semester}_{s}_mark"]
-    for s in subjects
-]
-
-average = round(sum(scores) / len(scores), 1) if scores else 0
-
-performance_estimate = round(
-    0.70 * average
-    + 0.20 * attendance
-    + 0.10 * min(daily_hours * 10, 100),
-    1
-)
-
-# ---------------- OVERVIEW ----------------
-if page == "Overview":
+# ---------------- HOME PAGE ----------------
+if page == "Home":
     st.title("🎓 GradeGenius")
-    st.header("Your learning journey ✨")
+    st.header("Welcome to your learning journey ✨")
     st.write("Predict. Plan. Perform.")
 
-    st.markdown(
-        f"""
-        <div class="gg-pink">
-        <h3>Welcome, {student_name.strip() or "Student"}! 👋</h3>
-        <p>Selected academic year: <b>{year}</b></p>
-        <p>Selected semester: <b>{semester}</b></p>
-        <p>Manage your subjects, create a study plan,
-        and track your academic progress.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.markdown("""
+    <div class="gg-pink">
+        <h3>🏠 Student Home Page</h3>
+        <p>Enter your details below to personalize your academic dashboard.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("student_details_form"):
+        st.subheader("👤 Student Details")
+
+        name = st.text_input(
+            "Student Name",
+            value=profile["name"],
+            placeholder="Enter your full name"
+        )
+
+        course = st.selectbox(
+            "Course",
+            ["B.Tech", "B.Sc", "BCA", "Other"],
+            index=["B.Tech", "B.Sc", "BCA", "Other"].index(
+                profile["course"]
+            )
+        )
+
+        year = st.selectbox(
+            "Year",
+            ["2nd Year", "3rd Year", "4th Year"],
+            index=["2nd Year", "3rd Year", "4th Year"].index(
+                profile["year"]
+            )
+        )
+
+        semester = st.selectbox(
+            "Semester",
+            ["Semester 1", "Semester 2"],
+            index=["Semester 1", "Semester 2"].index(
+                profile["semester"]
+            )
+        )
+
+        st.subheader("📅 General Academic Details")
+
+        attendance = st.number_input(
+            "Overall Attendance (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=float(profile["attendance"]),
+            step=1.0
+        )
+
+        study_hours = st.number_input(
+            "Available Daily Study Hours",
+            min_value=0.0,
+            max_value=24.0,
+            value=float(profile["study_hours"]),
+            step=0.5
+        )
+
+        save_profile = st.form_submit_button(
+            "💾 Save Student Details",
+            use_container_width=True
+        )
+
+    if save_profile:
+        if not name.strip():
+            st.error("Please enter your name.")
+        else:
+            st.session_state.profile = {
+                "name": name.strip(),
+                "course": course,
+                "year": year,
+                "semester": semester,
+                "attendance": attendance,
+                "study_hours": study_hours
+            }
+
+            st.success("Student details saved successfully!")
+            st.rerun()
+
+    profile = st.session_state.profile
+    subjects = current_subjects()
+
+    st.markdown("---")
+    st.subheader("📊 Academic Overview")
+
+    if profile["name"]:
+        st.markdown(
+            f"### Hello, {html.escape(profile['name'])}! 👋"
+        )
+    else:
+        st.info("Save your student details to personalize this page.")
+
+    st.write(
+        f"**{profile['year']} — {profile['semester']}**"
     )
 
-    st.subheader("📊 Your Academic Snapshot")
+    average = calculate_average(
+        subjects, profile["year"], profile["semester"]
+    )
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Subject Average", f"{average}%")
-    col2.metric("Attendance", f"{attendance}%")
-    col3.metric("Daily Study", f"{daily_hours} hours")
+    col2.metric("Overall Attendance", f"{profile['attendance']}%")
+    col3.metric("Daily Study Hours", f"{profile['study_hours']}")
 
-    st.metric(
-        "Illustrative Performance Estimate",
-        f"{performance_estimate}%"
+    st.markdown("### 📚 Your Subjects")
+
+    subject_rows = []
+
+    for subject in subjects:
+        data = get_subject_data(
+            profile["year"], profile["semester"], subject
+        )
+        subject_rows.append({
+            "Subject": subject,
+            "Marks (%)": data["marks"],
+            "Attendance (%)": data["attendance"],
+            "Study Hours": data["study_hours"]
+        })
+
+    st.dataframe(
+        pd.DataFrame(subject_rows),
+        use_container_width=True,
+        hide_index=True
     )
 
     st.caption(
-        "This is a simple rule-based estimate, not a validated "
-        "machine-learning prediction or guaranteed exam result."
+        "Enter or update individual subject details in My Subjects."
     )
-
-    category = (
-        "Excellent" if performance_estimate >= 85
-        else "Good" if performance_estimate >= 70
-        else "Keep Practising"
-    )
-
-    st.markdown(
-        f"""
-        <div class="gg-card">
-        <h3>🎯 Current status: {category}</h3>
-        <p>Enter your marks in My Subjects to update this overview.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.subheader("📚 Subject-wise Marks")
-
-    chart_df = pd.DataFrame({
-        "Subject": subjects,
-        "Marks (%)": scores
-    }).set_index("Subject")
-
-    st.bar_chart(chart_df)
-
-    if scores:
-        weakest_index = scores.index(min(scores))
-        weakest_subject = subjects[weakest_index]
-
-        st.info(
-            f"💡 Suggested focus: **{weakest_subject}**. "
-            "Try revising one topic and solving practice questions."
-        )
 
 # ---------------- MY SUBJECTS ----------------
 elif page == "My Subjects":
     st.title("📚 My Subjects")
-    st.write(f"Subjects for **{year} — {semester}**")
+    st.write(f"**{year} — {semester}**")
 
     st.info(
-        "These are sample subject lists. You can change the marks "
-        "and adapt the subjects to match your college syllabus."
+        "Type your marks and other details manually for every subject. "
+        "Your entries update the current session's dashboard and reports."
     )
 
     for subject in subjects:
-        key = f"{year}_{semester}_{subject}_mark"
+        data = get_subject_data(year, semester, subject)
 
         with st.container(border=True):
-            st.subheader(subject)
-            st.slider(
-                f"{subject} marks (%)",
+            st.subheader(f"📘 {subject}")
+
+            c1, c2 = st.columns(2)
+
+            with c1:
+                data["marks"] = st.number_input(
+                    f"{subject} Marks (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=float(data["marks"]),
+                    step=1.0,
+                    key=f"marks_{year}_{semester}_{subject}"
+                )
+
+                data["attendance"] = st.number_input(
+                    f"{subject} Attendance (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=float(data["attendance"]),
+                    step=1.0,
+                    key=f"attendance_{year}_{semester}_{subject}"
+                )
+
+            with c2:
+                data["study_hours"] = st.number_input(
+                    f"Daily Study Hours for {subject}",
+                    min_value=0.0,
+                    max_value=24.0,
+                    value=float(data["study_hours"]),
+                    step=0.5,
+                    key=f"hours_{year}_{semester}_{subject}"
+                )
+
+                data["assignments_total"] = st.number_input(
+                    f"Total Assignments — {subject}",
+                    min_value=0,
+                    max_value=100,
+                    value=int(data["assignments_total"]),
+                    step=1,
+                    key=f"total_assign_{year}_{semester}_{subject}"
+                )
+
+            data["assignments_done"] = st.number_input(
+                f"Assignments Completed — {subject}",
                 min_value=0,
-                max_value=100,
-                value=st.session_state.marks[key],
-                key=f"slider_{key}"
+                max_value=int(data["assignments_total"]),
+                value=min(
+                    int(data["assignments_done"]),
+                    int(data["assignments_total"])
+                ),
+                step=1,
+                key=f"done_assign_{year}_{semester}_{subject}"
             )
-            st.session_state.marks[key] = st.session_state[
-                f"slider_{key}"
-            ]
-            st.progress(st.session_state.marks[key] / 100)
 
-    updated_scores = [
-        st.session_state.marks[f"{year}_{semester}_{s}_mark"]
-        for s in subjects
-    ]
+            c3, c4 = st.columns(2)
 
-    updated_average = round(
-        sum(updated_scores) / len(updated_scores), 1
-    )
+            with c3:
+                data["topics_total"] = st.number_input(
+                    f"Total Topics — {subject}",
+                    min_value=1,
+                    max_value=500,
+                    value=int(data["topics_total"]),
+                    step=1,
+                    key=f"total_topics_{year}_{semester}_{subject}"
+                )
+
+            with c4:
+                data["topics_done"] = st.number_input(
+                    f"Topics Completed — {subject}",
+                    min_value=0,
+                    max_value=int(data["topics_total"]),
+                    value=min(
+                        int(data["topics_done"]),
+                        int(data["topics_total"])
+                    ),
+                    step=1,
+                    key=f"done_topics_{year}_{semester}_{subject}"
+                )
+
+            assignment_total = data["assignments_total"]
+            assignment_done = min(
+                data["assignments_done"], assignment_total
+            )
+
+            assignment_percent = (
+                assignment_done / assignment_total * 100
+                if assignment_total > 0 else 0
+            )
+
+            st.progress(assignment_percent / 100)
+            st.caption(
+                f"Assignments: {assignment_done}/{assignment_total} "
+                f"({assignment_percent:.1f}%)"
+            )
+
+            topic_percent = (
+                data["topics_done"] / data["topics_total"] * 100
+            )
+
+            st.progress(topic_percent / 100)
+            st.caption(
+                f"Topics: {data['topics_done']}/{data['topics_total']} "
+                f"({topic_percent:.1f}%)"
+            )
 
     st.markdown("---")
-    st.metric("Current Subject Average", f"{updated_average}%")
 
-    marks_df = pd.DataFrame({
-        "Year": [year] * len(subjects),
-        "Semester": [semester] * len(subjects),
-        "Subject": subjects,
-        "Marks (%)": updated_scores
-    })
+    average = calculate_average(subjects, year, semester)
+    st.metric("Current Subject Average", f"{average}%")
+
+    rows = []
+    for subject in subjects:
+        data = get_subject_data(year, semester, subject)
+        rows.append({
+            "Year": year,
+            "Semester": semester,
+            "Subject": subject,
+            "Marks (%)": data["marks"],
+            "Attendance (%)": data["attendance"],
+            "Daily Study Hours": data["study_hours"],
+            "Assignments Completed": data["assignments_done"],
+            "Total Assignments": data["assignments_total"],
+            "Topics Completed": data["topics_done"],
+            "Total Topics": data["topics_total"]
+        })
 
     st.download_button(
-        "⬇️ Download Subject Marks",
-        data=marks_df.to_csv(index=False),
-        file_name="gradegenius_subject_marks.csv",
-        mime="text/csv"
+        "⬇️ Download Subject Details",
+        data=pd.DataFrame(rows).to_csv(index=False),
+        file_name="gradegenius_subjects.csv",
+        mime="text/csv",
+        use_container_width=True
     )
 
 # ---------------- STUDY PLANNER ----------------
 elif page == "Study Planner":
     st.title("🗓️ Personalized Study Planner")
-    st.write("Create a study timetable for your upcoming exam.")
-
-    st.markdown(
-        f'<div class="gg-purple"><b>{year} — {semester}</b>'
-        f'<br>Available subjects: {len(subjects)}</div>',
-        unsafe_allow_html=True
-    )
+    st.write("Build a timetable based on your available time.")
 
     exam_date = st.date_input(
-        "Your exam date",
+        "Exam Date",
         value=date.today() + timedelta(days=7),
         min_value=date.today()
     )
 
-    hours = st.slider(
-        "Hours available per day",
+    hours_per_day = st.number_input(
+        "Study Hours Per Day",
         min_value=1,
         max_value=12,
-        value=daily_hours
+        value=max(1, min(12, int(profile["study_hours"])))
     )
 
-    chosen_subjects = st.multiselect(
-        "Choose subjects to study",
+    selected_subjects = st.multiselect(
+        "Select Subjects",
         options=subjects,
         default=subjects
     )
 
-    if st.button("✨ Generate My Study Plan", use_container_width=True):
-        days_left = (exam_date - date.today()).days
+    if st.button("✨ Generate Study Plan", use_container_width=True):
+        days = (exam_date - date.today()).days
 
-        if not chosen_subjects:
-            st.error("Please select at least one subject.")
-        elif days_left < 1:
+        if days < 1:
             st.error("Choose an exam date after today.")
+        elif not selected_subjects:
+            st.error("Select at least one subject.")
         else:
-            schedule = []
+            plan = []
 
-            for day_number in range(days_left):
-                study_date = date.today() + timedelta(
-                    days=day_number
+            for i in range(days):
+                study_date = date.today() + timedelta(days=i)
+                subject = selected_subjects[i % len(selected_subjects)]
+
+                task = (
+                    "Revise concepts and prepare notes"
+                    if i % 2 == 0
+                    else "Solve practice questions and review mistakes"
                 )
 
-                subject = chosen_subjects[
-                    day_number % len(chosen_subjects)
-                ]
-
-                schedule.append({
+                plan.append({
                     "Date": study_date.strftime("%d-%m-%Y"),
                     "Day": study_date.strftime("%A"),
                     "Subject": subject,
-                    "Study Hours": hours,
-                    "Suggested Task": (
-                        "Revise concepts and make notes"
-                        if day_number % 2 == 0
-                        else "Solve practice questions and review mistakes"
-                    )
+                    "Study Hours": hours_per_day,
+                    "Suggested Task": task
                 })
 
-            st.session_state.planner = schedule
+            st.session_state.study_plan = plan
 
-    if st.session_state.planner:
-        plan_df = pd.DataFrame(st.session_state.planner)
+    if st.session_state.study_plan:
+        plan_df = pd.DataFrame(st.session_state.study_plan)
 
-        st.subheader("📅 Your Generated Timetable")
+        st.subheader("📅 Your Timetable")
         st.dataframe(
             plan_df,
             use_container_width=True,
@@ -385,8 +524,7 @@ elif page == "Study Planner":
         )
 
         st.success(
-            f"Your plan has {len(plan_df)} study days. "
-            "Remember to take breaks and adjust it to your routine."
+            f"Timetable generated for {len(plan_df)} days."
         )
 
         st.download_button(
@@ -400,191 +538,167 @@ elif page == "Study Planner":
 elif page == "What-if Simulator":
     st.title("🧪 What-if Simulator")
     st.write(
-        "Try different study habits and compare an illustrative score."
+        "Compare your current routine with a possible new study routine."
     )
 
-    current_marks = st.slider(
-        "Current marks (%)",
-        0, 100, int(average)
+    average = calculate_average(subjects, year, semester)
+
+    current_marks = st.number_input(
+        "Current Average Marks (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=float(average),
+        step=1.0
     )
 
-    current_attendance = st.slider(
-        "Expected attendance (%)",
-        0, 100, attendance
+    new_attendance = st.number_input(
+        "Expected Attendance (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=float(profile["attendance"]),
+        step=1.0
     )
 
-    current_study_hours = st.slider(
-        "Current daily study hours",
-        0.0, 12.0, float(daily_hours), 0.5
+    current_hours = st.number_input(
+        "Current Daily Study Hours",
+        min_value=0.0,
+        max_value=24.0,
+        value=float(profile["study_hours"]),
+        step=0.5
     )
 
-    extra_hours = st.slider(
-        "Additional daily study hours",
-        0.0, 5.0, 1.0, 0.5
+    extra_hours = st.number_input(
+        "Additional Daily Study Hours",
+        min_value=0.0,
+        max_value=12.0,
+        value=1.0,
+        step=0.5
     )
 
-    days_available = st.slider(
-        "Days available until exam",
-        1, 120, 14
+    days = st.number_input(
+        "Days Until Exam",
+        min_value=1,
+        max_value=365,
+        value=14
     )
 
-    before_score = round(
+    proposed_hours = min(24, current_hours + extra_hours)
+
+    before = round(
         0.70 * current_marks
-        + 0.20 * attendance
-        + 0.10 * min(current_study_hours * 10, 100),
+        + 0.20 * profile["attendance"]
+        + 0.10 * min(current_hours * 10, 100),
         1
     )
 
-    proposed_hours = min(
-        12, current_study_hours + extra_hours
-    )
-
-    after_score = round(
+    after = round(
         0.70 * current_marks
-        + 0.20 * current_attendance
+        + 0.20 * new_attendance
         + 0.10 * min(proposed_hours * 10, 100),
         1
     )
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Current Scenario", f"{before_score}%")
-    col2.metric("Proposed Scenario", f"{after_score}%")
-    col3.metric(
-        "Difference",
-        f"{after_score - before_score:+.1f}%"
-    )
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Current Scenario", f"{before}%")
+    c2.metric("New Scenario", f"{after}%")
+    c3.metric("Difference", f"{after - before:+.1f}%")
 
     st.write(
-        f"With {proposed_hours} study hours per day for "
-        f"{days_available} days, your planned extra study time "
-        f"is {extra_hours * days_available:.1f} hours."
+        f"Planned extra study time: **{extra_hours * days:.1f} hours** "
+        f"over {days} days."
     )
 
-    comparison_df = pd.DataFrame({
-        "Scenario": ["Current", "Proposed"],
-        "Illustrative Score": [before_score, after_score]
+    chart = pd.DataFrame({
+        "Scenario": ["Current", "New"],
+        "Illustrative Score (%)": [before, after]
     }).set_index("Scenario")
 
-    st.bar_chart(comparison_df)
+    st.bar_chart(chart)
 
     st.caption(
-        "These figures are illustrative calculations, not a reliable "
-        "prediction of actual marks. Real results depend on many factors."
+        "This is a simple illustrative calculation, not a guaranteed "
+        "prediction of actual exam marks."
     )
 
 # ---------------- PROGRESS & REPORT ----------------
 elif page == "Progress & Report":
     st.title("📈 Progress & Report")
-    st.write(f"Track topic completion for {year} — {semester}.")
+    st.write(f"**{year} — {semester}**")
 
-    st.info(
-        "Enter the number of topics in each subject and how many "
-        "you have completed. Your progress summary updates automatically."
-    )
-
-    report_rows = []
+    rows = []
 
     for subject in subjects:
-        progress_key = f"{year}_{semester}_{subject}_progress"
-        saved = st.session_state.progress[progress_key]
+        data = get_subject_data(year, semester, subject)
 
-        st.markdown(f"### 📘 {subject}")
+        topic_percent = (
+            data["topics_done"] / data["topics_total"] * 100
+            if data["topics_total"] > 0 else 0
+        )
 
-        col1, col2 = st.columns(2)
+        assignment_percent = (
+            data["assignments_done"] / data["assignments_total"] * 100
+            if data["assignments_total"] > 0 else 0
+        )
 
-        with col1:
-            total = st.number_input(
-                f"Total topics — {subject}",
-                min_value=1,
-                max_value=500,
-                value=int(saved["total"]),
-                key=f"total_{year}_{semester}_{subject}"
-            )
-
-        with col2:
-            completed = st.number_input(
-                f"Completed topics — {subject}",
-                min_value=0,
-                max_value=int(total),
-                value=min(int(saved["completed"]), int(total)),
-                key=f"completed_{year}_{semester}_{subject}"
-            )
-
-        completed = min(completed, total)
-
-        st.session_state.progress[progress_key] = {
-            "total": int(total),
-            "completed": int(completed)
-        }
-
-        percent = round(completed / total * 100, 1)
-
-        st.progress(percent / 100)
-        st.caption(f"Completed: {completed}/{total} topics ({percent}%)")
-
-        report_rows.append({
-            "Year": year,
-            "Semester": semester,
+        rows.append({
             "Subject": subject,
-            "Marks (%)": st.session_state.marks[
-                f"{year}_{semester}_{subject}_mark"
-            ],
-            "Total Topics": total,
-            "Completed Topics": completed,
-            "Progress (%)": percent
+            "Marks (%)": data["marks"],
+            "Attendance (%)": data["attendance"],
+            "Daily Study Hours": data["study_hours"],
+            "Assignments Completed": data["assignments_done"],
+            "Total Assignments": data["assignments_total"],
+            "Assignment Progress (%)": round(assignment_percent, 1),
+            "Topics Completed": data["topics_done"],
+            "Total Topics": data["topics_total"],
+            "Topic Progress (%)": round(topic_percent, 1)
         })
 
-    report_df = pd.DataFrame(report_rows)
+    report_df = pd.DataFrame(rows)
 
     total_topics = int(report_df["Total Topics"].sum())
-    completed_topics = int(report_df["Completed Topics"].sum())
+    completed_topics = int(report_df["Topics Completed"].sum())
 
-    overall_progress = round(
-        completed_topics / total_topics * 100, 1
-    ) if total_topics else 0
+    overall_progress = (
+        round(completed_topics / total_topics * 100, 1)
+        if total_topics else 0
+    )
 
-    st.markdown("---")
-    st.subheader("🎯 Overall Progress")
+    total_assignments = int(report_df["Total Assignments"].sum())
+    completed_assignments = int(
+        report_df["Assignments Completed"].sum()
+    )
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Topics", total_topics)
-    col2.metric("Completed Topics", completed_topics)
-    col3.metric("Overall Completion", f"{overall_progress}%")
+    assignment_progress = (
+        round(completed_assignments / total_assignments * 100, 1)
+        if total_assignments else 0
+    )
 
-    st.progress(overall_progress / 100)
+    average = calculate_average(subjects, year, semester)
 
-    st.subheader("📊 Subject-wise Progress")
-    progress_chart = report_df[
-        ["Subject", "Progress (%)"]
-    ].set_index("Subject")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Average Marks", f"{average}%")
+    c2.metric("Topic Completion", f"{overall_progress}%")
+    c3.metric("Assignment Completion", f"{assignment_progress}%")
 
-    st.bar_chart(progress_chart)
+    st.subheader("📚 Topic Progress by Subject")
+    st.bar_chart(
+        report_df.set_index("Subject")[["Topic Progress (%)"]]
+    )
 
-    st.subheader("📄 Your Progress Report")
+    st.subheader("📝 Assignment Progress by Subject")
+    st.bar_chart(
+        report_df.set_index("Subject")[["Assignment Progress (%)"]]
+    )
+
+    st.subheader("📋 Complete Progress Report")
     st.dataframe(
         report_df,
         use_container_width=True,
         hide_index=True
     )
 
-    csv_report = report_df.to_csv(index=False)
-
     st.download_button(
-        "⬇️ Download Progress Report (CSV)",
-        data=csv_report,
+        "⬇️ Download Progress Report",
+        data=report_df.to_csv(index=False),
         file_name="gradegenius_progress_report.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
-
-    st.caption(
-        "Progress is kept in the current Streamlit session. "
-        "It is not permanently saved to a database."
-    )
-
-# ---------------- FOOTER ----------------
-st.markdown("---")
-st.caption(
-    "🎓 GradeGenius • Plan your learning, track your progress, "
-    "and build better study habits."
-)
+        mim)
